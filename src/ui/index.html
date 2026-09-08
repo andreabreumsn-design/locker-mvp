@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Locker MVP - Test UI</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f5f5f5; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+    .header { background: #1a1a1a; color: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+    .card { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .card h2 { margin-bottom: 15px; color: #333; }
+    input, button { padding: 10px; margin: 5px 0; width: 100%; border: 1px solid #ddd; border-radius: 4px; }
+    button { background: #007bff; color: white; cursor: pointer; border: none; font-weight: bold; }
+    button:hover { background: #0056b3; }
+    pre { background: #f0f0f0; padding: 10px; border-radius: 4px; overflow-x: auto; margin-top: 10px; }
+    .success { color: #28a745; }
+    .error { color: #dc3545; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>🔐 Locker MVP - Test UI</h1>
+      <p>Interface de teste - FIDO2 + OSINT + CNPJ Validation</p>
+    </div>
+
+    <div class="card">
+      <h2>🔑 Autenticação</h2>
+      <button onclick="getTestToken()">Gerar Token de Teste</button>
+      <input type="text" id="token" placeholder="Token JWT" readonly>
+      <pre id="tokenResult"></pre>
+    </div>
+
+    <div class="card">
+      <h2>✅ Validar CNPJ</h2>
+      <input type="text" id="cnpj" placeholder="11.222.333/0001-81">
+      <button onclick="validateCNPJ()">Validar CNPJ</button>
+      <pre id="cnpjResult"></pre>
+    </div>
+
+    <div class="card">
+      <h2>🔍 OSINT Scan</h2>
+      <input type="text" id="osintCnpj" placeholder="11.222.333/0001-81">
+      <input type="text" id="osintEmail" placeholder="contato@empresa.com (opcional)">
+      <button onclick="scanOSINT()">Executar OSINT</button>
+      <pre id="osintResult"></pre>
+    </div>
+
+    <div class="card">
+      <h2>📊 Audit Logs</h2>
+      <button onclick="getAuditLogs()">Carregar Logs</button>
+      <pre id="logsResult"></pre>
+    </div>
+
+    <div class="card">
+      <h2>🏥 Health Check</h2>
+      <button onclick="healthCheck()">Verificar Saúde</button>
+      <pre id="healthResult"></pre>
+    </div>
+  </div>
+
+  <script>
+    const API_URL = window.location.hostname === 'localhost'
+      ? 'http://localhost:3000'
+      : window.location.origin;
+    let token = localStorage.getItem('token') || null;
+
+    if (token) {
+      document.getElementById('token').value = token;
+    }
+
+    async function getTestToken() {
+      try {
+        const res = await fetch(`${API_URL}/auth/test-token`, { method: 'POST' });
+        const data = await res.json();
+        token = data.token;
+        localStorage.setItem('token', token);
+        document.getElementById('token').value = token;
+        document.getElementById('tokenResult').innerHTML = JSON.stringify(data, null, 2);
+      } catch (e) {
+        document.getElementById('tokenResult').innerHTML = `<span class="error">❌ Erro: ${e.message}</span>`;
+      }
+    }
+
+    async function validateCNPJ() {
+      if (!token) { alert('Gere um token primeiro!'); return; }
+      const cnpj = document.getElementById('cnpj').value;
+      try {
+        const res = await fetch(`${API_URL}/validate/cnpj/${cnpj}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        document.getElementById('cnpjResult').innerHTML = `<span class="success">✅</span>\n${JSON.stringify(data, null, 2)}`;
+      } catch (e) {
+        document.getElementById('cnpjResult').innerHTML = `<span class="error">❌ Erro: ${e.message}</span>`;
+      }
+    }
+
+    async function scanOSINT() {
+      if (!token) { alert('Gere um token primeiro!'); return; }
+      const cnpj = document.getElementById('osintCnpj').value;
+      const email = document.getElementById('osintEmail').value;
+      const params = new URLSearchParams();
+      if (email) params.append('email', email);
+      try {
+        const res = await fetch(`${API_URL}/osint/scan/${cnpj}?${params}`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        document.getElementById('osintResult').innerHTML = `<span class="success">✅</span>\n${JSON.stringify(data, null, 2)}`;
+      } catch (e) {
+        document.getElementById('osintResult').innerHTML = `<span class="error">❌ Erro: ${e.message}</span>`;
+      }
+    }
+
+    async function getAuditLogs() {
+      if (!token) { alert('Gere um token primeiro!'); return; }
+      try {
+        const res = await fetch(`${API_URL}/audit/logs`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        document.getElementById('logsResult').innerHTML = `<span class="success">✅</span>\n${JSON.stringify(data, null, 2)}`;
+      } catch (e) {
+        document.getElementById('logsResult').innerHTML = `<span class="error">❌ Erro: ${e.message}</span>`;
+      }
+    }
+
+    async function healthCheck() {
+      try {
+        const res = await fetch(`${API_URL}/health`);
+        const data = await res.json();
+        document.getElementById('healthResult').innerHTML = `<span class="success">✅</span>\n${JSON.stringify(data, null, 2)}`;
+      } catch (e) {
+        document.getElementById('healthResult').innerHTML = `<span class="error">❌ Erro: ${e.message}</span>`;
+      }
+    }
+
+    // Health check on load
+    window.onload = () => healthCheck();
+  </script>
+</body>
+</html>
